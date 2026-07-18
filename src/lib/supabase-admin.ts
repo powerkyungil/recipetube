@@ -17,6 +17,11 @@ export function getSupabaseAdmin() {
 }
 
 export async function getUserIdFromRequest(request: Request) {
+  const user = await getUserFromRequest(request);
+  return user?.id ?? null;
+}
+
+export async function getUserFromRequest(request: Request) {
   const authorization = request.headers.get("authorization");
   const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
 
@@ -31,5 +36,5 @@ export async function getUserIdFromRequest(request: Request) {
     return null;
   }
 
-  return data.user.id;
+  return data.user;
 }
