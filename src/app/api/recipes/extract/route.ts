@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   generateRecipeFromTranscript,
 } from "@/lib/recipe-ai";
-import { createMockRecipeResponse } from "@/lib/mock-recipe";
 import { jsonError } from "@/lib/request";
 import { getSupabaseAdmin, getUserIdFromRequest } from "@/lib/supabase-admin";
 import { incrementUsage, readUsage } from "@/lib/usage";
@@ -18,9 +17,6 @@ const bodySchema = z.object({
   url: z.string().min(1),
 });
 const EXTRACTION_PIPELINE_VERSION = "ocr-v3";
-
-// Cost safety switch: keep this enabled until real AI extraction is needed again.
-const USE_MOCK_RECIPE_EXTRACTION = true;
 
 export async function GET(request: Request) {
   try {
@@ -94,31 +90,6 @@ export async function POST(request: Request) {
       return jsonError(
         "이번 달 무료 추출 10회를 모두 사용했습니다. 다음 달 1일에 다시 이용할 수 있어요.",
         429,
-      );
-    }
-
-    if (USE_MOCK_RECIPE_EXTRACTION) {
-      const usage = await incrementUsage(supabase, subject);
-
-      if (!usage.allowed) {
-        return jsonError(
-          "이번 달 무료 추출 10회를 모두 사용했습니다. 다음 달 1일에 다시 이용할 수 있어요.",
-          429,
-        );
-      }
-
-      return Response.json(
-        createMockRecipeResponse({
-          url: body.url,
-          canonicalUrl: parsed.canonicalUrl,
-          videoId: parsed.videoId,
-          usage: {
-            limit: usage.limit,
-            used: usage.used,
-            remaining: usage.remaining,
-            subject: "user",
-          },
-        }),
       );
     }
 
