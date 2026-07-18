@@ -1,320 +1,120 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import type { ExtractRecipeResponse, Recipe } from "@/types/recipe";
-
-function createAnonymousId() {
-  const existing = window.localStorage.getItem("recipetube_anonymous_id");
-
-  if (existing) {
-    return existing;
-  }
-
-  const id = crypto.randomUUID().replaceAll("-", "");
-  window.localStorage.setItem("recipetube_anonymous_id", id);
-  return id;
-}
+import Link from "next/link";
 
 export default function Home() {
-  const [url, setUrl] = useState("");
-  const [email, setEmail] = useState("");
-  const [session, setSession] = useState<Session | null>(null);
-  const [anonymousId, setAnonymousId] = useState("");
-  const [result, setResult] = useState<ExtractRecipeResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const supabase = useMemo(() => getSupabaseBrowser(), []);
-
-  useEffect(() => {
-    if (!supabase) {
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
-
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-    });
-
-    return () => data.subscription.unsubscribe();
-  }, [supabase]);
-
-  async function extractRecipe(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
-    setMessage(null);
-    setResult(null);
-
-    try {
-      const nextAnonymousId = anonymousId || createAnonymousId();
-      setAnonymousId(nextAnonymousId);
-
-      const response = await fetch("/api/recipes/extract", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-anonymous-id": nextAnonymousId,
-          ...(session?.access_token
-            ? { authorization: `Bearer ${session.access_token}` }
-            : {}),
-        },
-        body: JSON.stringify({ url }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "레시피를 추출하지 못했습니다.");
-      }
-
-      setResult(data as ExtractRecipeResponse);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function sendMagicLink(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage(null);
-
-    if (!supabase) {
-      setMessage("Supabase 공개 환경변수가 설정되지 않았습니다.");
-      return;
-    }
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
-    });
-
-    setMessage(
-      error ? error.message : "로그인 링크를 이메일로 보냈습니다. 메일함을 확인하세요.",
-    );
-  }
-
-  async function signOut() {
-    await supabase?.auth.signOut();
-    setSession(null);
-  }
-
-  async function saveRecipe(recipe: Recipe) {
-    if (!result || !session?.access_token) {
-      setMessage("저장하려면 로그인이 필요합니다.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage(null);
-
-    try {
-      const response = await fetch("/api/recipes/save", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          sourceUrl: result.source.canonicalUrl,
-          title: recipe.title,
-          recipe,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "저장하지 못했습니다.");
-      }
-
-      setMessage("레시피를 저장했습니다.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "오류가 발생했습니다.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <main className="min-h-screen bg-[#f6f4ef] text-[#25211b]">
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-8 sm:px-8 lg:px-10">
-        <header className="flex flex-col gap-5 border-b border-[#ded8cc] pb-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7d4f2a]">
-              RecipeTube
-            </p>
-            <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">
-              YouTube Shorts 링크로 레시피를 정리합니다.
-            </h1>
+    <main className="kitchen-grid flex-1 overflow-hidden bg-[#f5f7ef] text-[#20352f]">
+      <section className="mx-auto grid w-full max-w-7xl items-center gap-12 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:px-10 lg:py-24">
+        <div>
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#d6e6d6] bg-white/75 px-3.5 py-2 text-sm font-bold text-[#42695d] shadow-sm">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e5f0e3]">🥬</span>
+            흩어진 요리 영상을 한곳에
           </div>
-          <div className="rounded-md border border-[#ded8cc] bg-white px-4 py-3 text-sm text-[#5f574c] shadow-sm">
-            <p>비로그인 월 2회</p>
-            <p>무료회원 월 5회, 저장 5개</p>
+          <h1 className="text-[2.8rem] font-black leading-[1.1] tracking-[-0.06em] text-[#193c33] sm:text-6xl lg:text-7xl">
+            보고 싶은 레시피를
+            <br />
+            <span className="text-[#df684b]">냉장고에 담아두세요.</span>
+          </h1>
+          <p className="mt-7 max-w-xl text-base leading-8 text-[#61766e] sm:text-lg">
+            레시담은 YouTube Shorts 속 재료와 조리 순서를 알아보기 쉽게 정리하고,
+            나만의 레시피 냉장고에 오래 보관해 드려요.
+          </p>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <Link href="/extract" className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#397565] px-6 font-extrabold text-white shadow-[0_10px_24px_rgba(57,117,101,0.22)] transition hover:-translate-y-0.5 hover:bg-[#2f6557]">
+              레시피 추출하기
+              <ArrowIcon className="h-5 w-5" />
+            </Link>
+            <Link href="/fridge" className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-[#cad8ce] bg-white/80 px-6 font-extrabold text-[#3c6257] transition hover:-translate-y-0.5 hover:bg-white">
+              나의 냉장고 보기
+            </Link>
           </div>
-        </header>
+          <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold text-[#71847c]">
+            <span className="flex items-center gap-2"><CheckIcon /> 재료 자동 정리</span>
+            <span className="flex items-center gap-2"><CheckIcon /> 조리 순서 요약</span>
+            <span className="flex items-center gap-2"><CheckIcon /> 레시피 저장</span>
+          </div>
+        </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-          <section className="rounded-md border border-[#ded8cc] bg-white p-5 shadow-sm">
-            <form className="flex flex-col gap-4" onSubmit={extractRecipe}>
-              <label className="text-sm font-medium text-[#4d453a]" htmlFor="url">
-                YouTube Shorts URL
-              </label>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  id="url"
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                  placeholder="https://youtube.com/shorts/..."
-                  className="min-h-12 flex-1 rounded-md border border-[#cfc6b6] bg-[#fffdf9] px-4 text-base outline-none ring-[#8a5a34] focus:ring-2"
-                />
-                <button
-                  disabled={loading || !url}
-                  className="min-h-12 rounded-md bg-[#2f5d50] px-5 font-semibold text-white transition hover:bg-[#274d43] disabled:cursor-not-allowed disabled:bg-[#9aa79f]"
-                >
-                  {loading ? "분석 중" : "레시피 추출"}
-                </button>
-              </div>
-              <p className="text-sm text-[#756c61]">
-                `/shorts/영상ID` 형식만 허용합니다. 일반 YouTube 영상 링크는 분석하지 않습니다.
-              </p>
-            </form>
+        <FridgeIllustration />
+      </section>
 
-            {message ? (
-              <div className="mt-5 rounded-md border border-[#e4c7a4] bg-[#fff8ed] px-4 py-3 text-sm text-[#6f451c]">
-                {message}
-              </div>
-            ) : null}
-
-            {result ? (
-              <RecipeResult
-                data={result}
-                onSave={() => saveRecipe(result.recipe)}
-                canSave={Boolean(session)}
-                saving={saving}
-              />
-            ) : null}
-          </section>
-
-          <aside className="rounded-md border border-[#ded8cc] bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">계정</h2>
-            {session?.user.email ? (
-              <div className="mt-4 flex flex-col gap-3 text-sm">
-                <p className="text-[#4d453a]">{session.user.email}</p>
-                <button
-                  onClick={signOut}
-                  className="min-h-10 rounded-md border border-[#cfc6b6] px-4 font-medium"
-                >
-                  로그아웃
-                </button>
-              </div>
-            ) : (
-              <form className="mt-4 flex flex-col gap-3" onSubmit={sendMagicLink}>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="email@example.com"
-                  className="min-h-11 rounded-md border border-[#cfc6b6] bg-[#fffdf9] px-3 outline-none ring-[#8a5a34] focus:ring-2"
-                />
-                <button className="min-h-10 rounded-md bg-[#7d4f2a] px-4 font-semibold text-white">
-                  이메일로 로그인
-                </button>
-              </form>
-            )}
-            <div className="mt-6 border-t border-[#ece6dc] pt-5 text-sm text-[#756c61]">
-              <p>Supabase Auth 설정 후 이메일 매직링크 로그인이 동작합니다.</p>
-            </div>
-          </aside>
+      <section className="border-y border-[#e1e9df] bg-white/65">
+        <div className="mx-auto w-full max-w-7xl px-5 py-16 sm:px-8 lg:px-10">
+          <div className="text-center">
+            <p className="text-sm font-black tracking-[0.16em] text-[#df684b]">HOW IT WORKS</p>
+            <h2 className="mt-3 text-3xl font-black tracking-[-0.04em] text-[#23483e] sm:text-4xl">세 단계면 충분해요</h2>
+          </div>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            <StepCard number="01" emoji="🔗" title="Shorts 링크 붙이기" description="마음에 든 요리 영상의 주소를 복사해 넣어요." />
+            <StepCard number="02" emoji="🥣" title="레시피로 정리하기" description="재료와 계량, 조리 순서를 한눈에 정리해요." />
+            <StepCard number="03" emoji="🧊" title="냉장고에 보관하기" description="로그인하고 나중에 다시 보고 싶은 레시피를 담아요." />
+          </div>
         </div>
       </section>
     </main>
   );
 }
 
-function RecipeResult({
-  data,
-  onSave,
-  canSave,
-  saving,
-}: {
-  data: ExtractRecipeResponse;
-  onSave: () => void;
-  canSave: boolean;
-  saving: boolean;
-}) {
-  const recipe = data.recipe;
-
+function FridgeIllustration() {
   return (
-    <section className="mt-8 border-t border-[#ece6dc] pt-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm text-[#756c61]">
-            남은 횟수 {data.usage.remaining} / {data.usage.limit}
-            {data.source.fromCache ? " · 캐시 사용" : ""}
-          </p>
-          <h2 className="mt-2 text-3xl font-semibold">{recipe.title}</h2>
-          <p className="mt-2 text-sm text-[#756c61]">
-            신뢰도 {Math.round(recipe.confidence_score * 100)}% · 난이도{" "}
-            {recipe.difficulty}
-          </p>
+    <div className="relative mx-auto w-full max-w-[470px] px-7 py-5 sm:px-12">
+      <div className="absolute -left-3 top-20 h-28 w-28 rounded-full bg-[#f6cfaa]/55 blur-2xl" />
+      <div className="absolute -right-4 bottom-16 h-36 w-36 rounded-full bg-[#bcded3]/70 blur-2xl" />
+      <div className="fridge-shine relative rounded-[44px] border-[7px] border-white/80 bg-[#cfe6df] p-4 shadow-[0_30px_70px_rgba(46,83,71,0.22)]">
+        <div className="relative z-10 rounded-[30px] border border-white/80 bg-[#eaf5f0] p-5 sm:p-7">
+          <div className="flex items-center justify-between border-b border-[#c6d9d0] pb-5">
+            <div>
+              <p className="text-xs font-bold text-[#789087]">MY RECIPE FRIDGE</p>
+              <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-[#315f52]">나의 냉장고</p>
+            </div>
+            <span className="h-3 w-3 rounded-full bg-[#74ac74] ring-4 ring-[#dcebd9]" />
+          </div>
+          <div className="space-y-3 py-5">
+            <RecipeMagnet emoji="🍝" color="bg-[#fff2e8]" title="토마토 원팬 파스타" meta="20분 · 쉬움" />
+            <RecipeMagnet emoji="🥘" color="bg-[#fff8d9]" title="매콤달콤 제육볶음" meta="25분 · 쉬움" />
+            <RecipeMagnet emoji="🥗" color="bg-[#eaf4e5]" title="두부 들깨 샐러드" meta="10분 · 아주 쉬움" />
+          </div>
+          <div className="rounded-2xl border border-dashed border-[#aac6ba] bg-white/55 px-4 py-3 text-center text-sm font-bold text-[#668279]">새로운 레시피를 기다리고 있어요</div>
         </div>
-        <button
-          onClick={onSave}
-          disabled={!canSave || saving}
-          className="min-h-11 rounded-md bg-[#2f5d50] px-4 font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#9aa79f]"
-        >
-          {saving ? "저장 중" : "저장"}
-        </button>
+        <div className="relative z-10 mx-auto mt-3 h-2 w-28 rounded-full bg-[#6f9d8e]/65" />
       </div>
+      <div className="gentle-float absolute -right-1 top-0 rotate-3 rounded-2xl border border-[#efdda5] bg-[#fff6c9] px-4 py-3 text-sm font-extrabold text-[#765f2c] shadow-lg">오늘 뭐 먹지? 🥕</div>
+    </div>
+  );
+}
 
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <div>
-          <h3 className="text-lg font-semibold">재료</h3>
-          <ul className="mt-3 space-y-2 text-sm">
-            {recipe.ingredients.map((ingredient) => (
-              <li
-                key={`${ingredient.name}-${ingredient.amount}`}
-                className="rounded-md bg-[#f8f3ea] px-3 py-2"
-              >
-                <span className="font-medium">{ingredient.name}</span>
-                {ingredient.amount ? ` · ${ingredient.amount}` : ""}
-                {ingredient.note ? ` · ${ingredient.note}` : ""}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold">조리 순서</h3>
-          <ol className="mt-3 space-y-3 text-sm">
-            {recipe.steps.map((step) => (
-              <li key={step.order} className="rounded-md bg-[#f8f3ea] px-3 py-2">
-                <span className="font-semibold">{step.order}. </span>
-                {step.text}
-                {step.estimated_time ? (
-                  <span className="text-[#756c61]"> · {step.estimated_time}</span>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        </div>
+function RecipeMagnet({ emoji, color, title, meta }: { emoji: string; color: string; title: string; meta: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-white bg-white/85 p-3 shadow-sm">
+      <span className={`flex h-12 w-12 items-center justify-center rounded-xl text-2xl ${color}`}>{emoji}</span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-extrabold text-[#34564c]">{title}</span>
+        <span className="mt-0.5 block text-xs font-medium text-[#87978f]">{meta}</span>
+      </span>
+    </div>
+  );
+}
+
+function StepCard({ number, emoji, title, description }: { number: string; emoji: string; title: string; description: string }) {
+  return (
+    <article className="rounded-[24px] border border-[#e0e8de] bg-white p-6 shadow-[0_10px_30px_rgba(48,73,62,0.06)]">
+      <div className="flex items-center justify-between">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f0f5ed] text-2xl">{emoji}</span>
+        <span className="text-sm font-black tracking-[0.12em] text-[#e27a60]">STEP {number}</span>
       </div>
+      <h3 className="mt-5 text-lg font-extrabold text-[#294c42]">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-[#75877f]">{description}</p>
+    </article>
+  );
+}
 
-      {recipe.assumptions.length || recipe.warnings.length ? (
-        <div className="mt-6 rounded-md border border-[#e4c7a4] bg-[#fff8ed] px-4 py-3 text-sm text-[#6f451c]">
-          {[...recipe.assumptions, ...recipe.warnings].map((item) => (
-            <p key={item}>{item}</p>
-          ))}
-        </div>
-      ) : null}
-    </section>
+function CheckIcon() {
+  return <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#dcebd9] text-xs text-[#397565]">✓</span>;
+}
+
+function ArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12h14M14 7l5 5-5 5" />
+    </svg>
   );
 }

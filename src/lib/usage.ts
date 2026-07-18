@@ -1,8 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export const ANONYMOUS_MONTHLY_LIMIT = 2;
-export const USER_MONTHLY_LIMIT = 5;
-export const SAVED_RECIPE_LIMIT = 5;
+export const USER_MONTHLY_LIMIT = 10;
 
 export function getKstMonthKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -18,7 +16,7 @@ export function getKstMonthKey(date = new Date()) {
 }
 
 export function getUsageLimit(userId: string | null) {
-  return userId ? USER_MONTHLY_LIMIT : ANONYMOUS_MONTHLY_LIMIT;
+  return userId ? USER_MONTHLY_LIMIT : 0;
 }
 
 export async function readUsage(

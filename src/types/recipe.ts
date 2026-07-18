@@ -8,6 +8,9 @@ export type RecipeStep = {
   order: number;
   text: string;
   estimated_time: string | null;
+  source_text: string;
+  source_time: number | null;
+  confidence: number;
 };
 
 export type Recipe = {
@@ -30,6 +33,8 @@ export type ExtractRecipeResponse = {
     youtubeVideoId: string;
     youtubeTitle: string | null;
     fromCache: boolean;
+    isMock?: boolean;
+    isDemo?: boolean;
   };
   usage: {
     limit: number;
@@ -37,4 +42,10 @@ export type ExtractRecipeResponse = {
     remaining: number;
     subject: "anonymous" | "user";
   };
+};
+
+export type UsageStatusResponse = {
+  authenticated: boolean;
+  usage: ExtractRecipeResponse["usage"] | null;
+  monthKey: string | null;
 };

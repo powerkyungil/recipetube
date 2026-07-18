@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { jsonError } from "@/lib/request";
 import { getSupabaseAdmin, getUserIdFromRequest } from "@/lib/supabase-admin";
-import { SAVED_RECIPE_LIMIT } from "@/lib/usage";
 import { parseYouTubeShortsUrl } from "@/lib/youtube";
 
 const bodySchema = z.object({
@@ -33,19 +32,6 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabaseAdmin();
-    const { count, error: countError } = await supabase
-      .from("saved_recipes")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-
-    if (countError) {
-      throw countError;
-    }
-
-    if ((count ?? 0) >= SAVED_RECIPE_LIMIT) {
-      return jsonError("무료회원은 레시피를 5개까지 저장할 수 있습니다.", 429);
-    }
-
     const { data, error } = await supabase
       .from("saved_recipes")
       .insert({

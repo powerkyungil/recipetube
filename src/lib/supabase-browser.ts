@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-export function getSupabaseBrowser() {
+const supabaseBrowserClient = (() => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -8,5 +8,18 @@ export function getSupabaseBrowser() {
     return null;
   }
 
-  return createClient(supabaseUrl, anonKey);
+  const globalKey = "__recipetube_supabase_browser__";
+  const g = globalThis as typeof globalThis & {
+    [key: string]: ReturnType<typeof createClient> | undefined;
+  };
+
+  if (!g[globalKey]) {
+    g[globalKey] = createClient(supabaseUrl, anonKey);
+  }
+
+  return g[globalKey] ?? null;
+})();
+
+export function getSupabaseBrowser() {
+  return supabaseBrowserClient;
 }
