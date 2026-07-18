@@ -8,7 +8,6 @@ import { incrementUsage, readUsage } from "@/lib/usage";
 import {
   fetchYouTubeTitle,
   fetchYouTubeTranscript,
-  extractOcrTextFromShorts,
   parseYouTubeShortsUrl,
 } from "@/lib/youtube";
 import type { Recipe } from "@/types/recipe";
@@ -16,8 +15,6 @@ import type { Recipe } from "@/types/recipe";
 const bodySchema = z.object({
   url: z.string().min(1),
 });
-const EXTRACTION_PIPELINE_VERSION = "ocr-v3";
-
 export async function GET(request: Request) {
   try {
     const userId = await getUserIdFromRequest(request);
@@ -93,12 +90,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const cacheVideoId = `${parsed.videoId}:${EXTRACTION_PIPELINE_VERSION}`;
-
     const { data: cached, error: cacheError } = await supabase
       .from("video_cache")
       .select("youtube_title, recipe_json")
-      .eq("youtube_video_id", cacheVideoId)
+      .eq("youtube_video_id", parsed.videoId)
       .maybeSingle();
 
     if (cacheError) {
@@ -126,50 +121,27 @@ export async function POST(request: Request) {
       });
     }
 
-    const [youtubeTitle, captionTranscript] = await Promise.all([
+    const [youtubeTitle, transcript] = await Promise.all([
       fetchYouTubeTitle(parsed.videoId),
       fetchYouTubeTranscript(parsed.videoId),
     ]);
 
-    let transcript = captionTranscript;
-    let transcriptSource: "caption" | "ocr" = "caption";
-
     if (!transcript || transcript.length < 20) {
-      const ocrText = await extractOcrTextFromShorts(parsed.videoId);
-      if (ocrText && ocrText.length >= 20) {
-        transcript = ocrText;
-        transcriptSource = "ocr";
-      }
-    }
-
-    if (!transcript || transcript.length < 10) {
       return jsonError(
-        "자막/OCR에서 충분한 텍스트를 얻지 못했습니다. 현재 테스트 단계로 음성 전사(STT)는 비활성화되어 있습니다.",
+        "이 영상에는 사용할 수 있는 자막이 없습니다. 레시담은 자막이 제공되는 Shorts만 추출할 수 있어요.",
         422,
       );
     }
-
-    const ocrQuality = transcriptSource === "ocr"
-      ? assessOcrTranscriptQuality(transcript)
-      : null;
 
     const recipe = await generateRecipeFromTranscript({
       youtubeTitle,
       transcript,
     });
 
-    if (ocrQuality && !ocrQuality.ok) {
-      recipe.warnings = [
-        ...recipe.warnings,
-        `OCR 품질 낮음(동작 ${ocrQuality.actionCount}개, 계량 ${ocrQuality.quantityCount}개)으로 결과 신뢰도가 낮을 수 있습니다.`,
-      ];
-      recipe.confidence_score = Math.min(recipe.confidence_score, 0.45);
-    }
-
     const { error: insertCacheError } = await supabase
       .from("video_cache")
       .insert({
-        youtube_video_id: cacheVideoId,
+        youtube_video_id: parsed.videoId,
         source_url: parsed.canonicalUrl,
         youtube_title: youtubeTitle,
         transcript,
@@ -190,7 +162,6 @@ export async function POST(request: Request) {
         youtubeVideoId: parsed.videoId,
         youtubeTitle,
         fromCache: false,
-        transcriptSource,
       },
       usage: {
         limit: usage.limit,
@@ -238,45 +209,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      /transcription|audio|ytdl|youtube|playable formats|Could not extract functions/i.test(
-        message,
-      )
-    ) {
-      return jsonError(
-        "자막과 음성 전사 모두 실패했습니다. 영상이 비공개/연령제한이거나 음성이 거의 없을 수 있습니다.",
-        422,
-      );
-    }
-
-    if (/unsupported file format|unsupported_value/i.test(message)) {
-      return jsonError(
-        "음성 전사 파일 포맷이 올바르지 않습니다. 서버 포맷 변환 설정을 확인한 뒤 다시 시도해주세요.",
-        422,
-      );
-    }
-
     return jsonError(message, 500);
   }
-}
-
-function assessOcrTranscriptQuality(transcript: string) {
-  const lines = transcript
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length >= 4);
-
-  const actionCount = lines.filter((line) =>
-    /(넣|볶|끓|썰|자르|예열|마무리|완성|조리|버무리|졸이)/.test(line),
-  ).length;
-
-  const quantityCount = lines.filter((line) =>
-    /(스푼|큰술|작은술|국자|컵|ml|l|모|포기|대|g|kg)/i.test(line),
-  ).length;
-
-  return {
-    ok: actionCount >= 3 && quantityCount >= 3,
-    actionCount,
-    quantityCount,
-  };
 }
