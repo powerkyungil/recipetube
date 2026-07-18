@@ -138,7 +138,7 @@ async function fetchAllCostBuckets(input: {
         "content-type": "application/json",
       },
       cache: "no-store",
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(30_000),
     });
     const data = (await response.json()) as OpenAiCostsPage;
 
