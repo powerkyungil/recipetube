@@ -119,44 +119,28 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#dfe7dd] bg-[#f8faf4]/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-8 lg:px-10">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:h-[72px] lg:gap-4 lg:px-10">
         <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="레시담 메인으로 이동">
           <span className="fridge-shine flex h-10 w-10 items-center justify-center rounded-[15px] bg-[#397565] text-white shadow-[0_6px_18px_rgba(45,94,80,0.18)]">
             <FridgeLogoIcon className="h-6 w-6" />
           </span>
-          <span className="hidden min-[380px]:block">
+          <span>
             <span className="block text-xl font-black tracking-[-0.05em] text-[#214a40]">레시담</span>
-            <span className="hidden text-[10px] font-medium text-[#7d8e87] sm:block">레시피를 담는 나만의 냉장고</span>
+            <span className="hidden text-[10px] font-medium text-[#7d8e87] lg:block">레시피를 담는 나만의 냉장고</span>
           </span>
         </Link>
 
-        <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-          <nav aria-label="주요 메뉴" className="flex min-w-0 items-center gap-0.5 rounded-2xl bg-[#edf3eb] p-1 sm:gap-1">
-            {navigation.map((item) => {
-              const active = pathname === item.href;
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={`whitespace-nowrap rounded-xl px-2 py-2 text-[11px] font-bold transition min-[380px]:px-2.5 min-[380px]:text-xs sm:px-4 sm:text-sm ${
-                    active
-                      ? "bg-white text-[#2f6658] shadow-sm"
-                      : "text-[#74867f] hover:bg-white/60 hover:text-[#3c5d53]"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+        <div className="flex shrink-0 items-center gap-3">
+          <nav aria-label="주요 메뉴" className="hidden items-center gap-1 rounded-2xl bg-[#edf3eb] p-1 lg:flex">
+            <HeaderNavigation pathname={pathname} />
           </nav>
 
           {session ? (
             <div ref={menuRef} className="relative shrink-0">
-              <button type="button" onClick={() => setMenuOpen((current) => !current)} aria-expanded={menuOpen} aria-haspopup="menu" className="flex h-10 max-w-[94px] items-center gap-1 rounded-xl border border-[#cfe0d7] bg-white px-2 text-xs font-extrabold text-[#356457] shadow-sm transition hover:bg-[#f4f8f4] min-[380px]:max-w-[120px] sm:max-w-[160px] sm:px-3 sm:text-sm">
-                <span className="min-w-0 truncate">{profile?.nickname ?? "내 계정"}</span>
-                <span aria-hidden="true" className="text-[10px] text-[#779087]">▾</span>
+              <button type="button" onClick={() => setMenuOpen((current) => !current)} aria-expanded={menuOpen} aria-haspopup="menu" aria-label="내 계정 메뉴" title={profile?.nickname ?? "내 계정"} className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#cfe0d7] bg-white text-[#356457] shadow-sm transition hover:bg-[#f4f8f4] lg:max-w-[160px] lg:w-auto lg:justify-start lg:gap-1 lg:px-3 lg:text-sm">
+                <AccountIcon className="h-5 w-5 lg:hidden" />
+                <span className="hidden min-w-0 truncate lg:block">{profile?.nickname ?? "내 계정"}</span>
+                <span aria-hidden="true" className="hidden text-[10px] text-[#779087] lg:block">▾</span>
               </button>
               {menuOpen ? (
                 <div role="menu" className="absolute right-0 mt-2 w-64 overflow-hidden rounded-2xl border border-[#d8e4dc] bg-white p-2 shadow-[0_16px_40px_rgba(38,73,62,0.18)]">
@@ -180,6 +164,10 @@ export function SiteHeader() {
         </div>
       </div>
 
+      <nav aria-label="주요 메뉴" className="mx-4 mb-3 flex h-11 items-center gap-1 rounded-2xl bg-[#edf3eb] p-1 sm:mx-6 lg:hidden">
+        <HeaderNavigation pathname={pathname} mobile />
+      </nav>
+
       {deleting && deletionAccessToken && deletionEmail ? (
         <AccountDeletionDialog accessToken={deletionAccessToken} email={deletionEmail} onClose={() => setDeleting(false)} onDeleted={handleDeleted} />
       ) : null}
@@ -187,11 +175,45 @@ export function SiteHeader() {
   );
 }
 
+function HeaderNavigation({ pathname, mobile = false }: { pathname: string; mobile?: boolean }) {
+  return navigation.map((item) => {
+    const active = pathname === item.href;
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        className={`rounded-xl font-bold transition ${
+          mobile
+            ? "flex flex-1 items-center justify-center px-2 py-2 text-xs"
+            : "whitespace-nowrap px-4 py-2 text-sm"
+        } ${
+          active
+            ? "bg-white text-[#2f6658] shadow-sm"
+            : "text-[#74867f] hover:bg-white/60 hover:text-[#3c5d53]"
+        }`}
+      >
+        {item.label}
+      </Link>
+    );
+  });
+}
+
 function FridgeLogoIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="5" y="2.5" width="14" height="19" rx="2.5" />
       <path d="M5 10h14M8 6.5v1.5M8 13.5v2.5M8 21.5v1M16 21.5v1" />
+    </svg>
+  );
+}
+
+function AccountIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.2" />
+      <path d="M5.5 20c.7-3.2 3-5 6.5-5s5.8 1.8 6.5 5" />
     </svg>
   );
 }
