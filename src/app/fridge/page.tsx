@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { formatEmailOtpError } from "@/lib/email-otp";
+import {
+  EMAIL_OTP_LENGTH,
+  formatEmailOtpError,
+  normalizeEmailOtp,
+} from "@/lib/email-otp";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { Recipe } from "@/types/recipe";
 
@@ -136,7 +140,7 @@ export default function FridgePage() {
     setMessage(
       error
         ? formatEmailOtpError(error.message)
-        : "이메일로 인증번호를 보냈습니다. 메일에서 숫자 6자리를 확인하세요.",
+        : `이메일로 인증번호를 보냈습니다. 메일에서 숫자 ${EMAIL_OTP_LENGTH}자리를 확인하세요.`,
     );
   }
 
@@ -660,8 +664,8 @@ function LoginPanel({ email, otp, otpSent, loading, setEmail, setOtp, onSend, on
         {otpSent ? (
           <form onSubmit={onVerify} className="mt-3 flex flex-col gap-3 sm:flex-row">
             <label htmlFor="fridge-email-otp" className="sr-only">이메일 인증번호</label>
-            <input id="fridge-email-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="인증번호 숫자 6자리" className="min-h-12 min-w-0 flex-1 rounded-xl border border-[#c7d6cc] bg-white/85 px-4 text-center text-lg font-extrabold tracking-[0.3em] outline-none placeholder:text-sm placeholder:font-medium placeholder:tracking-normal focus:border-[#4d8878] focus:ring-4 focus:ring-white/70" />
-            <button type="submit" disabled={loading || otp.length !== 6} className="min-h-12 rounded-xl bg-[#397565] px-5 font-extrabold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#b9c3be]">{loading ? "확인 중" : "인증하고 로그인"}</button>
+            <input id="fridge-email-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern={`[0-9]{${EMAIL_OTP_LENGTH}}`} maxLength={EMAIL_OTP_LENGTH} required value={otp} onChange={(event) => setOtp(normalizeEmailOtp(event.target.value))} placeholder={`인증번호 숫자 ${EMAIL_OTP_LENGTH}자리`} className="min-h-12 min-w-0 flex-1 rounded-xl border border-[#c7d6cc] bg-white/85 px-4 text-center text-lg font-extrabold tracking-[0.3em] outline-none placeholder:text-sm placeholder:font-medium placeholder:tracking-normal focus:border-[#4d8878] focus:ring-4 focus:ring-white/70" />
+            <button type="submit" disabled={loading || otp.length !== EMAIL_OTP_LENGTH} className="min-h-12 rounded-xl bg-[#397565] px-5 font-extrabold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#b9c3be]">{loading ? "확인 중" : "인증하고 로그인"}</button>
           </form>
         ) : null}
         {!configured ? <p className="mt-3 text-xs font-medium text-[#a26c5b]">Supabase 환경변수 설정이 필요합니다.</p> : null}

@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { formatEmailOtpError } from "@/lib/email-otp";
+import {
+  EMAIL_OTP_LENGTH,
+  formatEmailOtpError,
+  normalizeEmailOtp,
+} from "@/lib/email-otp";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
 type AdminCostData = {
@@ -232,7 +236,7 @@ export default function AdminPage() {
     setNotice(
       error
         ? formatEmailOtpError(error.message)
-        : "관리자 이메일로 인증번호를 보냈습니다. 숫자 6자리를 확인해 주세요.",
+        : `관리자 이메일로 인증번호를 보냈습니다. 숫자 ${EMAIL_OTP_LENGTH}자리를 확인해 주세요.`,
     );
   }
 
@@ -339,15 +343,15 @@ export default function AdminPage() {
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
+                  pattern={`[0-9]{${EMAIL_OTP_LENGTH}}`}
+                  maxLength={EMAIL_OTP_LENGTH}
                   required
                   value={otp}
-                  onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="숫자 6자리"
+                  onChange={(event) => setOtp(normalizeEmailOtp(event.target.value))}
+                  placeholder={`숫자 ${EMAIL_OTP_LENGTH}자리`}
                   className="min-h-12 rounded-xl border border-[#cbd9cf] bg-[#fbfcf8] px-4 text-center text-lg font-extrabold tracking-[0.3em] outline-none placeholder:text-sm placeholder:font-medium placeholder:tracking-normal focus:border-[#4d8878] focus:ring-4 focus:ring-[#dcece7]"
                 />
-                <button type="submit" disabled={authLoading || otp.length !== 6} className="min-h-12 rounded-xl bg-[#397565] px-4 font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#b9c3be]">
+                <button type="submit" disabled={authLoading || otp.length !== EMAIL_OTP_LENGTH} className="min-h-12 rounded-xl bg-[#397565] px-4 font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#b9c3be]">
                   {authLoading ? "확인 중" : "인증하고 관리자 로그인"}
                 </button>
               </form>

@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { createMockRecipeResponse } from "@/lib/mock-recipe";
-import { formatEmailOtpError } from "@/lib/email-otp";
+import {
+  EMAIL_OTP_LENGTH,
+  formatEmailOtpError,
+  normalizeEmailOtp,
+} from "@/lib/email-otp";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type {
   ExtractRecipeResponse,
@@ -194,7 +198,7 @@ export default function Home() {
         ? { tone: "error", text: formatEmailOtpError(error.message) }
         : {
             tone: "success",
-            text: "이메일로 인증번호를 보냈어요. 메일에서 숫자 6자리를 확인해 주세요.",
+            text: `이메일로 인증번호를 보냈어요. 메일에서 숫자 ${EMAIL_OTP_LENGTH}자리를 확인해 주세요.`,
           },
     );
   }
@@ -437,15 +441,15 @@ export default function Home() {
                         type="text"
                         inputMode="numeric"
                         autoComplete="one-time-code"
-                        pattern="[0-9]{6}"
-                        maxLength={6}
+                        pattern={`[0-9]{${EMAIL_OTP_LENGTH}}`}
+                        maxLength={EMAIL_OTP_LENGTH}
                         required
                         value={otp}
-                        onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder="숫자 6자리"
+                        onChange={(event) => setOtp(normalizeEmailOtp(event.target.value))}
+                        placeholder={`숫자 ${EMAIL_OTP_LENGTH}자리`}
                         className="min-h-12 rounded-xl border border-[#c4d3c9] bg-white/80 px-3 text-center text-lg font-extrabold tracking-[0.3em] outline-none transition placeholder:text-sm placeholder:font-medium placeholder:tracking-normal placeholder:text-[#9caaa4] focus:border-[#4d8878] focus:bg-white focus:ring-4 focus:ring-white/70"
                       />
-                      <button type="submit" disabled={authLoading || otp.length !== 6} className="min-h-11 rounded-xl bg-[#397565] px-4 font-bold text-white transition hover:bg-[#2f6557] disabled:cursor-not-allowed disabled:bg-[#b9c3be]">
+                      <button type="submit" disabled={authLoading || otp.length !== EMAIL_OTP_LENGTH} className="min-h-11 rounded-xl bg-[#397565] px-4 font-bold text-white transition hover:bg-[#2f6557] disabled:cursor-not-allowed disabled:bg-[#b9c3be]">
                         {authLoading ? "확인 중" : "인증하고 로그인"}
                       </button>
                     </form>

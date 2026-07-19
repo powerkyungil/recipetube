@@ -1,3 +1,9 @@
+export const EMAIL_OTP_LENGTH = 8;
+
+export function normalizeEmailOtp(value: string) {
+  return value.replace(/\D/g, "").slice(0, EMAIL_OTP_LENGTH);
+}
+
 export function formatEmailOtpError(message: string) {
   if (/email rate limit|over_email_send_rate_limit/i.test(message)) {
     return "로그인 메일을 너무 자주 요청했어요. 잠시 후 다시 시도해 주세요.";
