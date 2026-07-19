@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { createMockRecipeResponse } from "@/lib/mock-recipe";
+import { formatEmailOtpError } from "@/lib/email-otp";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type {
   ExtractRecipeResponse,
@@ -27,6 +28,9 @@ export default function Home() {
   const supabase = useMemo(() => getSupabaseBrowser(), []);
   const [url, setUrl] = useState("");
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!supabase);
   const [usage, setUsage] = useState<ExtractRecipeResponse["usage"] | null>(null);
@@ -155,7 +159,14 @@ export default function Home() {
     }
   }
 
-  async function sendMagicLink(event: React.FormEvent<HTMLFormElement>) {
+  function changeEmail(value: string) {
+    setEmail(value);
+    setOtp("");
+    setOtpSent(false);
+    setLoginNotice(null);
+  }
+
+  async function sendEmailOtp(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoginNotice(null);
 
@@ -167,21 +178,56 @@ export default function Home() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin + "/extract",
-      },
-    });
+    setAuthLoading(true);
+    const normalizedEmail = email.trim();
+    const { error } = await supabase.auth.signInWithOtp({ email: normalizedEmail });
+    setAuthLoading(false);
+
+    if (!error) {
+      setEmail(normalizedEmail);
+      setOtp("");
+      setOtpSent(true);
+    }
 
     setLoginNotice(
       error
-        ? { tone: "error", text: formatLoginError(error.message) }
+        ? { tone: "error", text: formatEmailOtpError(error.message) }
         : {
             tone: "success",
-            text: "로그인 링크를 이메일로 보냈어요. 메일함을 확인해 주세요.",
+            text: "이메일로 인증번호를 보냈어요. 메일에서 숫자 6자리를 확인해 주세요.",
           },
     );
+  }
+
+  async function verifyEmailOtp(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoginNotice(null);
+
+    if (!supabase) {
+      setLoginNotice({
+        tone: "error",
+        text: "로그인 이메일 서비스를 사용할 수 없습니다.",
+      });
+      return;
+    }
+
+    setAuthLoading(true);
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: otp.trim(),
+      type: "email",
+    });
+    setAuthLoading(false);
+
+    if (error) {
+      setLoginNotice({ tone: "error", text: formatEmailOtpError(error.message) });
+      return;
+    }
+
+    setSession(data.session);
+    setOtp("");
+    setOtpSent(false);
+    setLoginNotice({ tone: "success", text: "로그인되었습니다." });
   }
 
   async function signOut() {
@@ -189,6 +235,8 @@ export default function Home() {
     setSession(null);
     setResult(null);
     setUsage(null);
+    setOtp("");
+    setOtpSent(false);
     setLoginNotice(null);
   }
 
@@ -364,20 +412,44 @@ export default function Home() {
                   </button>
                 </div>
               ) : (
-                <form className="flex flex-col gap-3" onSubmit={sendMagicLink}>
-                  <label htmlFor="email" className="text-sm font-bold text-[#466058]">로그인하고 월 10회 이용하기</label>
-                  <input
-                    id="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="email@example.com"
-                    className="min-h-12 rounded-xl border border-[#c4d3c9] bg-white/80 px-3 outline-none transition placeholder:text-[#9caaa4] focus:border-[#4d8878] focus:bg-white focus:ring-4 focus:ring-white/70"
-                  />
-                  <button type="submit" className="min-h-11 rounded-xl bg-[#e36f50] px-4 font-bold text-white shadow-[0_7px_16px_rgba(211,96,68,0.18)] transition hover:bg-[#cf5e42]">
-                    이메일로 로그인
-                  </button>
+                <div className="flex flex-col gap-3">
+                  <form className="flex flex-col gap-3" onSubmit={sendEmailOtp}>
+                    <label htmlFor="email" className="text-sm font-bold text-[#466058]">로그인하고 월 10회 이용하기</label>
+                    <input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={email}
+                      onChange={(event) => changeEmail(event.target.value)}
+                      placeholder="email@example.com"
+                      className="min-h-12 rounded-xl border border-[#c4d3c9] bg-white/80 px-3 outline-none transition placeholder:text-[#9caaa4] focus:border-[#4d8878] focus:bg-white focus:ring-4 focus:ring-white/70"
+                    />
+                    <button type="submit" disabled={authLoading} className="min-h-11 rounded-xl bg-[#e36f50] px-4 font-bold text-white shadow-[0_7px_16px_rgba(211,96,68,0.18)] transition hover:bg-[#cf5e42] disabled:cursor-wait disabled:bg-[#b9c3be]">
+                      {authLoading ? "전송 중" : otpSent ? "인증번호 다시 받기" : "인증번호 받기"}
+                    </button>
+                  </form>
+                  {otpSent ? (
+                    <form className="flex flex-col gap-3" onSubmit={verifyEmailOtp}>
+                      <label htmlFor="email-otp" className="text-sm font-bold text-[#466058]">이메일 인증번호</label>
+                      <input
+                        id="email-otp"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                        required
+                        value={otp}
+                        onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="숫자 6자리"
+                        className="min-h-12 rounded-xl border border-[#c4d3c9] bg-white/80 px-3 text-center text-lg font-extrabold tracking-[0.3em] outline-none transition placeholder:text-sm placeholder:font-medium placeholder:tracking-normal placeholder:text-[#9caaa4] focus:border-[#4d8878] focus:bg-white focus:ring-4 focus:ring-white/70"
+                      />
+                      <button type="submit" disabled={authLoading || otp.length !== 6} className="min-h-11 rounded-xl bg-[#397565] px-4 font-bold text-white transition hover:bg-[#2f6557] disabled:cursor-not-allowed disabled:bg-[#b9c3be]">
+                        {authLoading ? "확인 중" : "인증하고 로그인"}
+                      </button>
+                    </form>
+                  ) : null}
                   {loginNotice ? (
                     <div
                       aria-live="polite"
@@ -390,7 +462,7 @@ export default function Home() {
                       {loginNotice.text}
                     </div>
                   ) : null}
-                </form>
+                </div>
               )}
 
               <div className="mt-6 rotate-[-1deg] rounded-2xl border border-[#efdda5] bg-[#fff6c9] p-4 text-sm text-[#735f31] shadow-sm">
@@ -517,18 +589,6 @@ function RecipeResult({
       ) : null}
     </section>
   );
-}
-
-function formatLoginError(message: string) {
-  if (/email rate limit|over_email_send_rate_limit/i.test(message)) {
-    return "로그인 메일을 너무 자주 요청했어요. 잠시 후 다시 시도해 주세요.";
-  }
-
-  if (/rate limit|too many requests/i.test(message)) {
-    return "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.";
-  }
-
-  return message;
 }
 
 function UsageMeter({ usage, loading }: { usage: ExtractRecipeResponse["usage"] | null; loading: boolean }) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { formatEmailOtpError } from "@/lib/email-otp";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
 type AdminCostData = {
@@ -49,6 +50,9 @@ export default function AdminPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!supabase);
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [data, setData] = useState<AdminCostData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -198,7 +202,14 @@ export default function AdminPage() {
     void refreshMembers();
   }
 
-  async function sendMagicLink(event: React.FormEvent<HTMLFormElement>) {
+  function changeEmail(value: string) {
+    setEmail(value);
+    setOtp("");
+    setOtpSent(false);
+    setNotice(null);
+  }
+
+  async function sendEmailOtp(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setNotice(null);
 
@@ -207,16 +218,50 @@ export default function AdminPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin + "/admin" },
-    });
+    setAuthLoading(true);
+    const normalizedEmail = email.trim();
+    const { error } = await supabase.auth.signInWithOtp({ email: normalizedEmail });
+    setAuthLoading(false);
+
+    if (!error) {
+      setEmail(normalizedEmail);
+      setOtp("");
+      setOtpSent(true);
+    }
 
     setNotice(
       error
-        ? error.message
-        : "관리자 로그인 링크를 이메일로 보냈습니다. 메일함을 확인해 주세요.",
+        ? formatEmailOtpError(error.message)
+        : "관리자 이메일로 인증번호를 보냈습니다. 숫자 6자리를 확인해 주세요.",
     );
+  }
+
+  async function verifyEmailOtp(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNotice(null);
+
+    if (!supabase) {
+      setNotice("로그인 이메일 서비스를 사용할 수 없습니다.");
+      return;
+    }
+
+    setAuthLoading(true);
+    const { data: authData, error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: otp.trim(),
+      type: "email",
+    });
+    setAuthLoading(false);
+
+    if (error) {
+      setNotice(formatEmailOtpError(error.message));
+      return;
+    }
+
+    setSession(authData.session);
+    setOtp("");
+    setOtpSent(false);
+    setNotice("로그인되었습니다.");
   }
 
   const usedPercent = data
@@ -270,21 +315,43 @@ export default function AdminPage() {
             </div>
             <h2 className="text-2xl font-black tracking-[-0.03em] text-[#24493f]">관리자 로그인</h2>
             <p className="mt-2 text-sm leading-6 text-[#74867f]">허용된 관리자 이메일로만 접근할 수 있습니다.</p>
-            <form className="mt-6 flex flex-col gap-3" onSubmit={sendMagicLink}>
+            <form className="mt-6 flex flex-col gap-3" onSubmit={sendEmailOtp}>
               <label htmlFor="admin-email" className="text-sm font-extrabold text-[#405e54]">관리자 이메일</label>
               <input
                 id="admin-email"
                 type="email"
+                autoComplete="email"
                 required
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => changeEmail(event.target.value)}
                 placeholder="admin@example.com"
                 className="min-h-12 rounded-xl border border-[#cbd9cf] bg-[#fbfcf8] px-4 outline-none focus:border-[#4d8878] focus:ring-4 focus:ring-[#dcece7]"
               />
-              <button type="submit" className="min-h-12 rounded-xl bg-[#e36f50] px-4 font-extrabold text-white">
-                이메일로 관리자 로그인
+              <button type="submit" disabled={authLoading} className="min-h-12 rounded-xl bg-[#e36f50] px-4 font-extrabold text-white disabled:cursor-wait disabled:bg-[#b9c3be]">
+                {authLoading ? "전송 중" : otpSent ? "인증번호 다시 받기" : "인증번호 받기"}
               </button>
             </form>
+            {otpSent ? (
+              <form className="mt-3 flex flex-col gap-3" onSubmit={verifyEmailOtp}>
+                <label htmlFor="admin-email-otp" className="text-sm font-extrabold text-[#405e54]">이메일 인증번호</label>
+                <input
+                  id="admin-email-otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  required
+                  value={otp}
+                  onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="숫자 6자리"
+                  className="min-h-12 rounded-xl border border-[#cbd9cf] bg-[#fbfcf8] px-4 text-center text-lg font-extrabold tracking-[0.3em] outline-none placeholder:text-sm placeholder:font-medium placeholder:tracking-normal focus:border-[#4d8878] focus:ring-4 focus:ring-[#dcece7]"
+                />
+                <button type="submit" disabled={authLoading || otp.length !== 6} className="min-h-12 rounded-xl bg-[#397565] px-4 font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#b9c3be]">
+                  {authLoading ? "확인 중" : "인증하고 관리자 로그인"}
+                </button>
+              </form>
+            ) : null}
             {notice ? <p className="mt-4 rounded-xl bg-[#fff7e8] px-4 py-3 text-sm font-bold text-[#805526]">{notice}</p> : null}
           </section>
         ) : (

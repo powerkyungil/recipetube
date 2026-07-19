@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { formatEmailOtpError } from "@/lib/email-otp";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { Recipe } from "@/types/recipe";
 
@@ -25,6 +26,9 @@ export default function FridgePage() {
   const [authReady, setAuthReady] = useState(!supabase);
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -102,7 +106,14 @@ export default function FridgePage() {
     return () => controller.abort();
   }, [authReady, session?.access_token]);
 
-  async function sendMagicLink(event: React.FormEvent<HTMLFormElement>) {
+  function changeEmail(value: string) {
+    setEmail(value);
+    setOtp("");
+    setOtpSent(false);
+    setMessage(null);
+  }
+
+  async function sendEmailOtp(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
 
@@ -111,18 +122,58 @@ export default function FridgePage() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin + "/fridge" },
-    });
+    setAuthLoading(true);
+    const normalizedEmail = email.trim();
+    const { error } = await supabase.auth.signInWithOtp({ email: normalizedEmail });
+    setAuthLoading(false);
 
-    setMessage(error ? error.message : "로그인 링크를 이메일로 보냈습니다. 메일함을 확인하세요.");
+    if (!error) {
+      setEmail(normalizedEmail);
+      setOtp("");
+      setOtpSent(true);
+    }
+
+    setMessage(
+      error
+        ? formatEmailOtpError(error.message)
+        : "이메일로 인증번호를 보냈습니다. 메일에서 숫자 6자리를 확인하세요.",
+    );
+  }
+
+  async function verifyEmailOtp(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(null);
+
+    if (!supabase) {
+      setMessage("Supabase 공개 환경변수가 설정되지 않았습니다.");
+      return;
+    }
+
+    setAuthLoading(true);
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: otp.trim(),
+      type: "email",
+    });
+    setAuthLoading(false);
+
+    if (error) {
+      setMessage(formatEmailOtpError(error.message));
+      return;
+    }
+
+    setSession(data.session);
+    setOtp("");
+    setOtpSent(false);
+    setMessage("로그인되었습니다.");
   }
 
   async function signOut() {
     await supabase?.auth.signOut();
     setSession(null);
     setRecipes([]);
+    setOtp("");
+    setOtpSent(false);
   }
 
   async function deleteRecipe(recipe: SavedRecipe) {
@@ -317,7 +368,17 @@ export default function FridgePage() {
             </section>
           )
         ) : (
-          <LoginPanel email={email} setEmail={setEmail} onSubmit={sendMagicLink} configured={Boolean(supabase)} />
+          <LoginPanel
+            email={email}
+            otp={otp}
+            otpSent={otpSent}
+            loading={authLoading}
+            setEmail={changeEmail}
+            setOtp={setOtp}
+            onSend={sendEmailOtp}
+            onVerify={verifyEmailOtp}
+            configured={Boolean(supabase)}
+          />
         )}
       </div>
     </main>
@@ -582,7 +643,7 @@ function AddRecipeMagnet({ onClick }: { onClick: () => void }) {
   );
 }
 
-function LoginPanel({ email, setEmail, onSubmit, configured }: { email: string; setEmail: (value: string) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; configured: boolean }) {
+function LoginPanel({ email, otp, otpSent, loading, setEmail, setOtp, onSend, onVerify, configured }: { email: string; otp: string; otpSent: boolean; loading: boolean; setEmail: (value: string) => void; setOtp: (value: string) => void; onSend: (event: React.FormEvent<HTMLFormElement>) => void; onVerify: (event: React.FormEvent<HTMLFormElement>) => void; configured: boolean }) {
   return (
     <section className="fridge-shine mx-auto mt-10 max-w-xl rounded-[32px] bg-[#cce3db] p-2 shadow-[0_24px_60px_rgba(48,73,62,0.16)]">
       <div className="relative z-10 rounded-[25px] border border-white/80 bg-[#edf6f1] p-6 text-center sm:p-9">
@@ -591,10 +652,18 @@ function LoginPanel({ email, setEmail, onSubmit, configured }: { email: string; 
         <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-[#294d42]">내 냉장고를 열어볼까요?</h2>
         <p className="mt-2 text-sm leading-6 text-[#74867f]">저장된 레시피는 로그인한 계정에서만 안전하게 확인할 수 있어요.</p>
         <div className="mx-auto my-6 h-2 w-24 rounded-full bg-[#92b4a8]/60" />
-        <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
-          <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="email@example.com" className="min-h-12 min-w-0 flex-1 rounded-xl border border-[#c7d6cc] bg-white/85 px-4 outline-none focus:border-[#4d8878] focus:ring-4 focus:ring-white/70" />
-          <button type="submit" disabled={!configured} className="min-h-12 rounded-xl bg-[#e36f50] px-5 font-extrabold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#b9c3be]">로그인 링크 받기</button>
+        <form onSubmit={onSend} className="flex flex-col gap-3 sm:flex-row">
+          <label htmlFor="fridge-email" className="sr-only">이메일</label>
+          <input id="fridge-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="email@example.com" className="min-h-12 min-w-0 flex-1 rounded-xl border border-[#c7d6cc] bg-white/85 px-4 outline-none focus:border-[#4d8878] focus:ring-4 focus:ring-white/70" />
+          <button type="submit" disabled={!configured || loading} className="min-h-12 rounded-xl bg-[#e36f50] px-5 font-extrabold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#b9c3be]">{loading ? "전송 중" : otpSent ? "인증번호 다시 받기" : "인증번호 받기"}</button>
         </form>
+        {otpSent ? (
+          <form onSubmit={onVerify} className="mt-3 flex flex-col gap-3 sm:flex-row">
+            <label htmlFor="fridge-email-otp" className="sr-only">이메일 인증번호</label>
+            <input id="fridge-email-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="인증번호 숫자 6자리" className="min-h-12 min-w-0 flex-1 rounded-xl border border-[#c7d6cc] bg-white/85 px-4 text-center text-lg font-extrabold tracking-[0.3em] outline-none placeholder:text-sm placeholder:font-medium placeholder:tracking-normal focus:border-[#4d8878] focus:ring-4 focus:ring-white/70" />
+            <button type="submit" disabled={loading || otp.length !== 6} className="min-h-12 rounded-xl bg-[#397565] px-5 font-extrabold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-[#b9c3be]">{loading ? "확인 중" : "인증하고 로그인"}</button>
+          </form>
+        ) : null}
         {!configured ? <p className="mt-3 text-xs font-medium text-[#a26c5b]">Supabase 환경변수 설정이 필요합니다.</p> : null}
       </div>
       <div className="relative z-10 mx-auto mt-2 h-2 w-24 rounded-full bg-[#719e90]/65" />
