@@ -315,12 +315,12 @@ export default function FridgePage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={signOut} className="min-h-11 rounded-xl border border-[#bfd0c6] bg-white/65 px-4 text-sm font-bold text-[#627a72] transition hover:bg-white">로그아웃</button>
-                      <button type="button" onClick={() => openEditor({ mode: "new" })} className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#8eb5a7] bg-white/70 px-4 text-sm font-extrabold text-[#397565] transition hover:bg-white sm:flex-none">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      <button type="button" onClick={signOut} className="min-h-11 w-full rounded-xl border border-[#bfd0c6] bg-white/65 px-4 text-sm font-bold text-[#627a72] transition hover:bg-white sm:w-auto">로그아웃</button>
+                      <button type="button" onClick={() => openEditor({ mode: "new" })} className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-[#8eb5a7] bg-white/70 px-4 text-sm font-extrabold text-[#397565] transition hover:bg-white sm:w-auto">
                         <span className="text-lg leading-none">+</span> 직접 추가
                       </button>
-                      <Link href="/extract" className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#e36f50] px-4 text-sm font-extrabold text-white shadow-[0_7px_16px_rgba(211,96,68,0.18)] transition hover:bg-[#cf5e42] sm:flex-none">
+                      <Link href="/extract" className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-[#e36f50] px-4 text-sm font-extrabold text-white shadow-[0_7px_16px_rgba(211,96,68,0.18)] transition hover:bg-[#cf5e42] sm:w-auto">
                         <span className="text-lg leading-none">▶</span> 영상에서 담기
                       </Link>
                     </div>
