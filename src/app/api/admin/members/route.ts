@@ -1,3 +1,4 @@
+import { getOrCreateAccountProfile } from "@/lib/account-profile";
 import { jsonError } from "@/lib/request";
 import { getSupabaseAdmin, getUserFromRequest } from "@/lib/supabase-admin";
 
@@ -41,9 +42,10 @@ export async function GET(request: Request) {
     const userIds = users.map((user) => user.id);
     const savedRecipeCountByUser = new Map<string, number>();
     const extractionCountByUser = new Map<string, number>();
+    const nicknameByUser = new Map<string, string>();
 
     if (userIds.length) {
-      const [savedCountResults, usageResult] = await Promise.all([
+      const [savedCountResults, usageResult, profilesResult] = await Promise.all([
         Promise.all(
           userIds.map((userId) =>
             supabase
@@ -56,6 +58,10 @@ export async function GET(request: Request) {
           .from("usage_records")
           .select("user_id, generation_count")
           .in("user_id", userIds),
+        supabase
+          .from("profiles")
+          .select("id, nickname")
+          .in("id", userIds),
       ]);
 
       savedCountResults.forEach((result, index) => {
@@ -67,6 +73,22 @@ export async function GET(request: Request) {
 
       if (usageResult.error) {
         throw usageResult.error;
+      }
+      if (profilesResult.error) {
+        throw profilesResult.error;
+      }
+
+      for (const profile of profilesResult.data ?? []) {
+        nicknameByUser.set(profile.id, profile.nickname);
+      }
+
+      const generatedProfiles = await Promise.all(
+        users
+          .filter((user) => !nicknameByUser.has(user.id))
+          .map((user) => getOrCreateAccountProfile(user)),
+      );
+      for (const profile of generatedProfiles) {
+        nicknameByUser.set(profile.id, profile.nickname);
       }
 
       for (const usage of usageResult.data ?? []) {
@@ -95,6 +117,7 @@ export async function GET(request: Request) {
         },
         members: users.map((user) => ({
           id: user.id,
+          nickname: nicknameByUser.get(user.id) ?? "닉네임 생성 중",
           email: user.email ?? "이메일 없음",
           joinedAt: user.created_at,
           lastSignInAt: user.last_sign_in_at ?? null,

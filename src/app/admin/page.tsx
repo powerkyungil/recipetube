@@ -35,6 +35,7 @@ type AdminMembersData = {
   };
   members: Array<{
     id: string;
+    nickname: string;
     email: string;
     joinedAt: string;
     lastSignInAt: string | null;
@@ -388,10 +389,11 @@ export default function AdminPage() {
                     </p>
                   ) : (
                     <div className={`overflow-x-auto transition-opacity ${membersLoading ? "opacity-55" : "opacity-100"}`}>
-                      <table className="w-full min-w-[820px] border-collapse text-left text-sm">
+                      <table className="w-full min-w-[900px] border-collapse text-left text-sm">
                         <thead className="bg-[#f4f7f2] text-xs font-black tracking-[0.08em] text-[#6e8179]">
                           <tr>
-                            <th className="px-6 py-4 sm:px-8">회원</th>
+                            <th className="px-6 py-4 sm:px-8">닉네임</th>
+                            <th className="px-4 py-4">이메일</th>
                             <th className="px-4 py-4">가입일</th>
                             <th className="px-4 py-4 text-center">저장 레시피</th>
                             <th className="px-4 py-4 text-center">추출 이용</th>
@@ -401,7 +403,8 @@ export default function AdminPage() {
                         <tbody>
                           {membersData.members.map((member) => (
                             <tr key={member.id} className="border-t border-[#edf1ec] text-[#50655d]">
-                              <td className="px-6 py-4 font-extrabold text-[#2e5147] sm:px-8">{member.email}</td>
+                              <td className="px-6 py-4 font-black text-[#2e5147] sm:px-8">{member.nickname}</td>
+                              <td className="px-4 py-4 font-extrabold text-[#5d746b]">{member.email}</td>
                               <td className="px-4 py-4 whitespace-nowrap">{formatKoreanDateTime(member.joinedAt)}</td>
                               <td className="px-4 py-4 text-center font-black text-[#397565]">{formatNumber(member.savedRecipeCount)}</td>
                               <td className="px-4 py-4 text-center font-black text-[#df684b]">{formatNumber(member.extractionCount)}</td>

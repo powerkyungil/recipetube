@@ -172,14 +172,6 @@ export default function FridgePage() {
     setMessage("로그인되었습니다.");
   }
 
-  async function signOut() {
-    await supabase?.auth.signOut();
-    setSession(null);
-    setRecipes([]);
-    setOtp("");
-    setOtpSent(false);
-  }
-
   async function deleteRecipe(recipe: SavedRecipe) {
     if (!session?.access_token || !window.confirm(`‘${recipe.title}’ 레시피를 냉장고에서 삭제할까요?`)) {
       return;
@@ -316,7 +308,6 @@ export default function FridgePage() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                      <button type="button" onClick={signOut} className="min-h-11 w-full rounded-xl border border-[#bfd0c6] bg-white/65 px-4 text-sm font-bold text-[#627a72] transition hover:bg-white sm:w-auto">로그아웃</button>
                       <button type="button" onClick={() => openEditor({ mode: "new" })} className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-[#8eb5a7] bg-white/70 px-4 text-sm font-extrabold text-[#397565] transition hover:bg-white sm:w-auto">
                         <span className="text-lg leading-none">+</span> 직접 추가
                       </button>
