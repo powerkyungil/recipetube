@@ -9,6 +9,7 @@ import {
   fetchYouTubeTitle,
   fetchYouTubeTranscript,
   parseYouTubeShortsUrl,
+  YouTubeTranscriptFetchError,
 } from "@/lib/youtube";
 import type { Recipe } from "@/types/recipe";
 
@@ -178,6 +179,27 @@ export async function POST(request: Request) {
 
     // Keep full detail in server logs for debugging.
     console.error("[/api/recipes/extract] unhandled error:", error);
+
+    if (error instanceof YouTubeTranscriptFetchError) {
+      if (error.code === "rate_limited") {
+        return jsonError(
+          "YouTube에서 자막 요청을 일시적으로 제한했습니다. 잠시 후 다시 시도해주세요.",
+          503,
+        );
+      }
+
+      if (error.code === "video_unavailable") {
+        return jsonError(
+          "영상을 불러올 수 없습니다. 영상이 비공개 또는 삭제 상태인지 확인해주세요.",
+          422,
+        );
+      }
+
+      return jsonError(
+        "YouTube 자막 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.",
+        502,
+      );
+    }
 
     if (message.includes('relation "public.')) {
       return jsonError(

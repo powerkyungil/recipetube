@@ -1,4 +1,11 @@
-import { YoutubeTranscript } from "youtube-transcript";
+import {
+  YoutubeTranscript,
+  YoutubeTranscriptDisabledError,
+  YoutubeTranscriptNotAvailableError,
+  YoutubeTranscriptNotAvailableLanguageError,
+  YoutubeTranscriptTooManyRequestError,
+  YoutubeTranscriptVideoUnavailableError,
+} from "youtube-transcript";
 
 export type ParsedShortsUrl =
   | {
@@ -12,6 +19,24 @@ export type ParsedShortsUrl =
     };
 
 const YOUTUBE_SHORTS_PATH = /^\/shorts\/([a-zA-Z0-9_-]{11})\/?$/;
+
+export type YouTubeTranscriptFetchErrorCode =
+  | "rate_limited"
+  | "video_unavailable"
+  | "request_failed";
+
+export class YouTubeTranscriptFetchError extends Error {
+  readonly code: YouTubeTranscriptFetchErrorCode;
+
+  constructor(
+    code: YouTubeTranscriptFetchErrorCode,
+    options?: ErrorOptions,
+  ) {
+    super(code, options);
+    this.name = "YouTubeTranscriptFetchError";
+    this.code = code;
+  }
+}
 
 export function parseYouTubeShortsUrl(input: string): ParsedShortsUrl {
   let url: URL;
@@ -60,13 +85,14 @@ export async function fetchYouTubeTitle(videoId: string) {
 }
 
 export async function fetchYouTubeTranscript(videoId: string) {
-  const languages = ["ko", "en"];
+  const languages: Array<string | undefined> = ["ko", "en", undefined];
 
   for (const lang of languages) {
     try {
-      const transcript = await YoutubeTranscript.fetchTranscript(videoId, {
-        lang,
-      });
+      const transcript = await YoutubeTranscript.fetchTranscript(
+        videoId,
+        lang ? { lang } : undefined,
+      );
 
       const text = transcript
         .map((item) => item.text)
@@ -77,19 +103,35 @@ export async function fetchYouTubeTranscript(videoId: string) {
       if (text.length > 0) {
         return text;
       }
-    } catch {
-      // Try the next language before failing.
+    } catch (error) {
+      if (error instanceof YoutubeTranscriptNotAvailableLanguageError) {
+        continue;
+      }
+
+      if (
+        error instanceof YoutubeTranscriptDisabledError ||
+        error instanceof YoutubeTranscriptNotAvailableError
+      ) {
+        return null;
+      }
+
+      if (error instanceof YoutubeTranscriptTooManyRequestError) {
+        throw new YouTubeTranscriptFetchError("rate_limited", {
+          cause: error,
+        });
+      }
+
+      if (error instanceof YoutubeTranscriptVideoUnavailableError) {
+        throw new YouTubeTranscriptFetchError("video_unavailable", {
+          cause: error,
+        });
+      }
+
+      throw new YouTubeTranscriptFetchError("request_failed", {
+        cause: error,
+      });
     }
   }
 
-  try {
-    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-    return transcript
-      .map((item) => item.text)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-  } catch {
-    return null;
-  }
+  return null;
 }
