@@ -48,6 +48,11 @@ export const metadata: Metadata = {
     title: "레시담 | 레시피를 담는 나만의 냉장고",
     description,
   },
+  verification: {
+    other: {
+      "naver-site-verification": "f7073641283cc2f87c7b1276541e3f2b11e6307f",
+    },
+  },
   icons: {
     icon: "/icon.svg",
   },
