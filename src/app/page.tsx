@@ -50,6 +50,21 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <section className="mx-auto w-full max-w-7xl px-5 py-16 sm:px-8 lg:px-10">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-black tracking-[0.16em] text-[#df684b]">RECIPE GUIDE</p>
+            <h2 className="mt-3 text-3xl font-black tracking-[-0.04em] text-[#23483e] sm:text-4xl">레시피를 더 잘 저장하는 법</h2>
+          </div>
+          <Link href="/guides" className="text-sm font-extrabold text-[#397565] transition hover:text-[#2f6557]">가이드 전체 보기 →</Link>
+        </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <GuideCard href="/guides/youtube-shorts-recipe" emoji="🔗" title="쇼츠 레시피 정리법" description="저장한 영상에서 재료와 조리 순서를 다시 찾기 쉽게 만드는 방법" />
+          <GuideCard href="/guides/youtube-shorts-recipe-extractor" emoji="🥣" title="추출 결과 확인법" description="영상 속 레시피를 내 주방에 맞게 다듬는 세 가지 점검" />
+          <GuideCard href="/guides/recipe-saving-tips" emoji="🧊" title="레시피 보관 습관" description="저장한 메뉴를 오늘 바로 꺼내 보기 쉬운 관리법" />
+        </div>
+      </section>
     </main>
   );
 }
@@ -104,6 +119,17 @@ function StepCard({ number, emoji, title, description }: { number: string; emoji
       <h3 className="mt-5 text-lg font-extrabold text-[#294c42]">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-[#75877f]">{description}</p>
     </article>
+  );
+}
+
+function GuideCard({ href, emoji, title, description }: { href: string; emoji: string; title: string; description: string }) {
+  return (
+    <Link href={href} className="group rounded-[24px] border border-[#e0e8de] bg-white p-6 shadow-[0_10px_30px_rgba(48,73,62,0.06)] transition hover:-translate-y-1 hover:shadow-[0_16px_34px_rgba(48,73,62,0.12)]">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f0f5ed] text-2xl">{emoji}</span>
+      <h3 className="mt-5 text-lg font-extrabold text-[#294c42]">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-[#75877f]">{description}</p>
+      <span className="mt-5 block text-sm font-extrabold text-[#397565]">읽어보기 →</span>
+    </Link>
   );
 }
 
